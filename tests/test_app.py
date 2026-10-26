@@ -226,6 +226,34 @@ class DiaBuddyAppTests(unittest.TestCase):
         self.assertIn("answer", data)
         self.assertIn("DiaBuddy Summary", data["answer"])
 
+    def test_doctor_report_route(self):
+        # Add reading and journal entry
+        self.client.post(
+            "/readings",
+            data={
+                "csrf_token": self.csrf_token,
+                "value": "118",
+                "unit": "mg/dL",
+                "context": "Fasting",
+                "recorded_at": "2026-10-26T08:30",
+            },
+        )
+        self.client.post(
+            "/journal",
+            data={
+                "csrf_token": self.csrf_token,
+                "category": "Meal",
+                "summary": "Avocado toast",
+                "logged_at": "2026-10-26T09:00",
+            },
+        )
+
+        res = self.client.get("/report?days=14")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b"DiaBuddy AI \xe2\x80\x94 Health Record Summary", res.data)
+        self.assertIn(b"Avocado toast", res.data)
+        self.assertIn(b"118", res.data)
+
 
 if __name__ == "__main__":
     unittest.main()

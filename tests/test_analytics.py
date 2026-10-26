@@ -2,6 +2,7 @@ import unittest
 from services.analytics import (
     classify_reading,
     compute_statistics,
+    generate_health_insights,
     prepare_chart_data,
 )
 
@@ -49,6 +50,23 @@ class AnalyticsServiceTests(unittest.TestCase):
         # Should be ordered chronologically
         self.assertEqual(chart_data[0]["value"], 100)
         self.assertEqual(chart_data[1]["value"], 110)
+
+    def test_generate_health_insights(self):
+        # Empty readings returns starting recommendation
+        insights = generate_health_insights([])
+        self.assertTrue(len(insights) > 0)
+        self.assertEqual(insights[0]["tag"], "Getting Started")
+
+        # Populated readings produce comparison insights
+        readings = [
+            {"value": 100, "unit": "mg/dL", "context": "Fasting", "recorded_at": "2026-10-26T08:00"},
+            {"value": 160, "unit": "mg/dL", "context": "After meal", "recorded_at": "2026-10-26T14:00"},
+        ]
+        journal = [{"category": "Exercise", "summary": "30 min walk", "detail": "Moderate", "logged_at": "2026-10-26T15:00"}]
+        insights = generate_health_insights(readings, journal)
+        tags = [i["tag"] for i in insights]
+        self.assertIn("Context Pattern", tags)
+        self.assertIn("Lifestyle Observation", tags)
 
 
 if __name__ == "__main__":

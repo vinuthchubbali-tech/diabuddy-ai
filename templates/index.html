@@ -23,6 +23,7 @@
         <a class="nav-link" href="#journal"><span>✎</span> Daily journal</a>
         <a class="nav-link" href="#reminders"><span>◷</span> Reminders</a>
         <a class="nav-link" href="#assistant"><span>✳</span> AI companion</a>
+        <a class="nav-link" href="{{ url_for('doctor_report_route') }}"><span>📄</span> Doctor report</a>
       </nav>
       <div class="sidebar-bottom">
         <div class="privacy-card">
@@ -38,6 +39,7 @@
       <header class="topbar">
         <div class="mobile-brand"><span class="brand-mark">d</span><strong>diabuddy</strong></div>
         <div class="topbar-spacer"></div>
+        <a class="button button-light no-mobile" href="{{ url_for('doctor_report_route') }}" style="font-size:9px; height:32px;">📄 Doctor Report</a>
         <span class="local-badge"><span></span> PRIVATE · LOCAL</span>
         <div class="avatar" aria-hidden="true">D</div>
       </header>
@@ -125,6 +127,28 @@
           {% endif %}
         </article>
       </section>
+
+      <!-- Personal Health Insights (Phase 2 Feature) -->
+      {% if insights %}
+        <section class="insights-section" aria-label="Personal health insights">
+          <div class="insights-header">
+            <span class="insights-pill">🧠 PERSONAL HEALTH INSIGHTS</span>
+            <small class="subtle-label">Objective observations from your recorded logs</small>
+          </div>
+          <div class="insights-grid">
+            {% for item in insights %}
+              <div class="insight-card">
+                <div class="insight-top">
+                  <span class="insight-icon">{{ item.icon }}</span>
+                  <span class="insight-tag">{{ item.tag }}</span>
+                </div>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.body }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
 
       <!-- Charts & Reminders Grid -->
       <section class="content-grid">

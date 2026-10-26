@@ -243,6 +243,18 @@ td { padding: 10px 8px; border-bottom: 1px solid #f1f3f0; color: #697269; font-s
 .page-footer { display: flex; justify-content: space-between; padding: 12px 2px 0; color: #9ca49c; font-size: 8px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; clip-path: inset(50%); }
 
+/* Personal Health Insights */
+.insights-section { margin-bottom: 15px; }
+.insights-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.insights-pill { font-size: 8px; font-weight: 700; color: #256649; background: #e2f2e7; padding: 3px 9px; border-radius: 12px; letter-spacing: 0.6px; }
+.insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 11px; }
+.insight-card { padding: 13px 14px; border: 1px solid #e4eae4; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px #24362405; display: flex; flex-direction: column; gap: 4px; }
+.insight-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.insight-icon { font-size: 14px; }
+.insight-tag { font-size: 8px; font-weight: 700; color: #849185; text-transform: uppercase; letter-spacing: 0.4px; }
+.insight-card strong { font-size: 9px; color: #253428; line-height: 1.35; }
+.insight-card p { margin: 0; font-size: 8px; color: #727e73; line-height: 1.45; }
+
 /* Responsive */
 @media (min-width: 1500px) {
   .main-content { margin-right: auto; padding-right: 62px; padding-left: 62px; }

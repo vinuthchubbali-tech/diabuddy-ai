@@ -1,7 +1,7 @@
 import math
 import os
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from flask import (
@@ -21,6 +21,7 @@ from services.ai_assistant import build_assistant_prompt, query_ollama
 from services.analytics import (
     classify_reading,
     compute_statistics,
+    generate_health_insights,
     prepare_chart_data,
 )
 from services.journal import (
@@ -113,16 +114,18 @@ def get_dashboard_data(db_path=None):
     for r in readings:
         r["classification"] = classify_reading(r["value"], r["unit"], r["context"])
 
-    stats = compute_statistics(readings)
-    chart_readings = prepare_chart_data(readings, limit=30)
     upcoming_reminders, recent_reminders = get_reminders(target_db, limit=8)
     journal_entries = get_journal_entries(target_db, limit=12)
+    stats = compute_statistics(readings)
+    insights = generate_health_insights(readings, journal_entries)
+    chart_readings = prepare_chart_data(readings, limit=30)
 
     return {
         "readings": readings,
         "chart_readings": chart_readings,
         "latest": readings[0] if readings else None,
         "stats": stats,
+        "insights": insights,
         "weekly_count": stats["weekly_count"],
         "weekly_delta": stats["weekly_delta"],
         "averages": stats["averages"],
@@ -167,6 +170,71 @@ def index():
     data["from_date"] = from_date
     data["to_date"] = to_date
     return render_template("index.html", **data)
+
+
+@app.get("/report")
+def doctor_report_route():
+    try:
+        days = int(request.args.get("days", "14"))
+    except (TypeError, ValueError):
+        days = 14
+    if days not in {7, 14, 30, 90}:
+        days = 14
+
+    now = datetime.now()
+    start_dt = now - timedelta(days=days)
+    start_iso = start_dt.isoformat(timespec="minutes")
+
+    with get_db(app.config["DATABASE_PATH"]) as db:
+        readings_rows = db.execute(
+            """
+            SELECT * FROM readings
+            WHERE recorded_at >= ?
+            ORDER BY recorded_at DESC, id DESC
+            """,
+            (start_iso,),
+        ).fetchall()
+        journal_rows = db.execute(
+            """
+            SELECT * FROM journal_entries
+            WHERE logged_at >= ?
+            ORDER BY logged_at DESC, id DESC
+            """,
+            (start_iso,),
+        ).fetchall()
+        reminders_rows = db.execute(
+            """
+            SELECT * FROM reminders
+            WHERE scheduled_at >= ?
+            ORDER BY scheduled_at ASC
+            """,
+            (start_iso,),
+        ).fetchall()
+
+    readings = [dict(r) for r in readings_rows]
+    for r in readings:
+        r["classification"] = classify_reading(r["value"], r["unit"], r["context"])
+
+    journal_entries = [dict(j) for j in journal_rows]
+    reminders = [dict(rem) for rem in reminders_rows]
+
+    stats = compute_statistics(readings)
+    insights = generate_health_insights(readings, journal_entries)
+    completed_reminders_count = sum(1 for rem in reminders if rem.get("completed") == 1)
+
+    return render_template(
+        "report.html",
+        readings=readings,
+        journal_entries=journal_entries,
+        stats=stats,
+        insights=insights,
+        days=days,
+        start_date=start_dt.strftime("%b %d, %Y"),
+        end_date=now.strftime("%b %d, %Y"),
+        generated_at=now.strftime("%b %d, %Y %H:%M"),
+        total_reminders_count=len(reminders),
+        completed_reminders_count=completed_reminders_count,
+    )
 
 
 @app.post("/readings")

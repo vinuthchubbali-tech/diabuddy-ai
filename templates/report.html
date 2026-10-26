@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DiaBuddy AI — Doctor Appointment Health Report</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body { background: #f8faf8; color: #1c261e; }
+    .report-container { max-width: 960px; margin: 30px auto; padding: 36px 40px; background: #fff; border: 1px solid #e1e7e2; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
+    .report-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 20px; border-bottom: 2px solid #2f7658; margin-bottom: 24px; }
+    .report-title h1 { margin: 0 0 6px; font-size: 26px; color: #202922; font-family: "Manrope", sans-serif; }
+    .report-title p { margin: 0; color: #6e7970; font-size: 11px; }
+    .report-actions { display: flex; gap: 10px; align-items: center; }
+    .report-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+    .meta-box { background: #f6f8f6; padding: 14px 16px; border-radius: 8px; border: 1px solid #e7eee8; }
+    .meta-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #78857a; font-weight: 700; margin-bottom: 6px; }
+    .meta-val { font-size: 20px; font-weight: 700; color: #233426; font-family: "Manrope", sans-serif; }
+    .meta-val span { font-size: 11px; font-weight: 500; color: #6f7c71; }
+    .meta-sub { font-size: 9px; color: #88948a; margin-top: 4px; }
+    .section-title { font-size: 14px; font-weight: 700; color: #2f7658; text-transform: uppercase; letter-spacing: 0.8px; margin: 28px 0 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #edf2ee; padding-bottom: 6px; }
+    .report-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
+    .report-table th { background: #f3f7f4; padding: 8px 10px; text-align: left; font-weight: 700; color: #536256; border-bottom: 1px solid #dfe7e1; }
+    .report-table td { padding: 8px 10px; border-bottom: 1px solid #eef3ef; color: #3b463d; }
+    .doctor-notes-box { background: #fafcfa; border: 1px dashed #bed4c4; border-radius: 8px; padding: 16px; min-height: 80px; margin-top: 10px; }
+    .report-disclaimer { margin-top: 32px; padding: 14px 16px; background: #fff8f5; border-left: 3px solid #d96f57; font-size: 9px; color: #7a5047; line-height: 1.5; border-radius: 4px; }
+    .filter-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; padding: 12px 16px; background: #f2f7f3; border-radius: 8px; }
+    @media print {
+      body { background: #fff; }
+      .report-container { border: 0; box-shadow: none; padding: 0; margin: 0; max-width: 100%; }
+      .no-print { display: none !important; }
+      .report-disclaimer { border-left-color: #666; color: #444; background: #eee; }
+    }
+  </style>
+</head>
+<body>
+  <div class="report-container">
+    <div class="no-print filter-bar">
+      <a class="button button-light" href="{{ url_for('index') }}">← Back to Dashboard</a>
+      <span style="flex:1;"></span>
+      <form method="get" action="{{ url_for('doctor_report_route') }}" style="display:flex; gap:8px; align-items:center;">
+        <label style="font-size:10px; color:#5c685e; font-weight:600;">Timeframe:
+          <select name="days" onchange="this.form.submit()" style="height:30px; font-size:10px; border:1px solid #d4ded6; border-radius:6px; padding:0 6px;">
+            <option value="7" {{ 'selected' if days == 7 }}>Last 7 Days</option>
+            <option value="14" {{ 'selected' if days == 14 }}>Last 14 Days</option>
+            <option value="30" {{ 'selected' if days == 30 }}>Last 30 Days</option>
+            <option value="90" {{ 'selected' if days == 90 }}>Last 90 Days</option>
+          </select>
+        </label>
+      </form>
+      <button class="button button-primary" onclick="window.print()">🖨️ Print / Save as PDF</button>
+    </div>
+
+    <header class="report-header">
+      <div class="report-title">
+        <h1>DiaBuddy AI — Health Record Summary</h1>
+        <p>Prepared for Clinical Consultation &amp; Routine Review · Generated on {{ generated_at }}</p>
+      </div>
+      <div class="badge badge-in-range" style="font-size:9px; padding:4px 9px;">CONFIDENTIAL RECORD</div>
+    </header>
+
+    <!-- Meta Stat Highlights -->
+    <div class="report-meta">
+      <div class="meta-box">
+        <div class="meta-label">Total Readings</div>
+        <div class="meta-val">{{ stats.total_count }} <span>entries</span></div>
+        <div class="meta-sub">Window: {{ start_date }} to {{ end_date }}</div>
+      </div>
+      <div class="meta-box">
+        <div class="meta-label">Recorded Average</div>
+        {% if stats.averages %}
+          {% for unit, avg in stats.averages.items() %}
+            <div class="meta-val">{{ "%.1f"|format(avg) }} <span>{{ unit }}</span></div>
+          {% endfor %}
+        {% else %}
+          <div class="meta-val">—</div>
+        {% endif %}
+        <div class="meta-sub">Mean of recorded logs</div>
+      </div>
+      <div class="meta-box">
+        <div class="meta-label">Observed Range</div>
+        {% if stats.min_max %}
+          {% for unit, mm in stats.min_max.items() %}
+            <div class="meta-val">{{ "%.0f"|format(mm.min) }}–{{ "%.0f"|format(mm.max) }} <span>{{ unit }}</span></div>
+          {% endfor %}
+        {% else %}
+          <div class="meta-val">—</div>
+        {% endif %}
+        <div class="meta-sub">Lowest to highest reading</div>
+      </div>
+      <div class="meta-box">
+        <div class="meta-label">Target Adherence</div>
+        <div class="meta-val">{{ stats.in_range_percent if stats.in_range_percent is not none else '—' }}% <span>in range</span></div>
+        <div class="meta-sub">ADA benchmark guidelines</div>
+      </div>
+    </div>
+
+    <!-- Observational Summary -->
+    <div class="section-title">📊 Key Observational Patterns</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+      {% for insight in insights %}
+        <div style="padding:10px 12px; border:1px solid #e7eee8; border-radius:7px; background:#fafbfa; font-size:9px;">
+          <strong style="display:block; margin-bottom:3px; color:#27432e;">{{ insight.icon }} {{ insight.title }}</strong>
+          <span style="color:#637166; line-height:1.4;">{{ insight.body }}</span>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Glucose Log Table -->
+    <div class="section-title">🩸 Glucose Readings Log ({{ readings|length }} Entries)</div>
+    {% if readings %}
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Date &amp; Time</th>
+            <th>Value</th>
+            <th>Context</th>
+            <th>Reference Status</th>
+            <th>Notes &amp; Circumstances</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in readings %}
+            <tr>
+              <td>{{ r.recorded_at.replace("T", " ") }}</td>
+              <td><strong>{{ "%.1f"|format(r.value) if r.value % 1 else r.value|int }}</strong> {{ r.unit }}</td>
+              <td>{{ r.context }}</td>
+              <td><span class="badge {{ r.classification.badge_class }}">{{ r.classification.label }}</span></td>
+              <td>{{ r.notes or "—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p style="font-size:10px; color:#888;">No glucose readings recorded in this timeframe.</p>
+    {% endif %}
+
+    <!-- Routines & Reminders -->
+    <div class="section-title">⏰ Routine &amp; Medication Adherence</div>
+    <p style="font-size:10px; color:#5c6b60; margin:0 0 10px;">
+      Completed reminders: <strong>{{ completed_reminders_count }}</strong> out of <strong>{{ total_reminders_count }}</strong> tracked routines.
+    </p>
+
+    <!-- Daily Health Journal -->
+    {% if journal_entries %}
+      <div class="section-title">✎ Lifestyle &amp; Journal Records</div>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Date &amp; Time</th>
+            <th>Category</th>
+            <th>Summary</th>
+            <th>Details / Estimation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for j in journal_entries %}
+            <tr>
+              <td>{{ j.logged_at.replace("T", " ") }}</td>
+              <td><strong>{{ j.category }}</strong></td>
+              <td>{{ j.summary }}</td>
+              <td>{{ j.detail or "—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    <!-- Questions for Clinician -->
+    <div class="section-title">🩺 Questions to Discuss with Healthcare Professional</div>
+    <div class="doctor-notes-box" contenteditable="true" style="outline:none; font-size:10px; line-height:1.6; color:#3b473e;">
+      1. Are my current fasting and post-meal averages aligning with my individualized HbA1c target goals?<br>
+      2. Based on my highest recorded readings, should we make any adjustments to meal timing or physical activity routines?<br>
+      3. Are there specific times of day you recommend I check blood glucose more or less frequently?
+    </div>
+    <small class="no-print" style="display:block; margin-top:4px; font-size:8px; color:#8d988f;">(Click above to edit or add personalized questions before printing)</small>
+
+    <!-- Clinical Disclaimer -->
+    <div class="report-disclaimer">
+      <strong>Clinical Disclaimer:</strong> This document is a structured personal record summary compiled by DiaBuddy AI based solely on self-reported patient logs. It does not constitute a medical diagnosis, clinical evaluation, or treatment plan. Always consult your qualified healthcare professional or diabetes care team for medical decisions, diagnosis, or changes to medication and insulin dosages.
+    </div>
+  </div>
+</body>
+</html>
