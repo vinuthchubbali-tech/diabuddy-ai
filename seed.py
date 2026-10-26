@@ -128,3 +128,4 @@ if __name__ == "__main__":
     parser.add_argument("--clear", action="store_true", help="Clear existing data before seeding")
     args = parser.parse_args()
     seed_database(clear_existing=args.clear)
+

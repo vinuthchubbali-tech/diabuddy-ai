@@ -176,6 +176,56 @@ class DiaBuddyAppTests(unittest.TestCase):
         with diabuddy.get_db(self.db_path) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM journal_entries").fetchone()[0], 0)
 
+    def test_reading_with_comma_and_seconds(self):
+        response = self.client.post(
+            "/readings",
+            data={
+                "csrf_token": self.csrf_token,
+                "value": "115,8",
+                "unit": "mg/dL",
+                "context": "Fasting",
+                "notes": "Comma support test",
+                "recorded_at": "2026-10-26T08:30:45",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        with diabuddy.get_db(self.db_path) as db:
+            row = db.execute("SELECT value, recorded_at FROM readings").fetchone()
+            self.assertAlmostEqual(row["value"], 115.8)
+            self.assertEqual(row["recorded_at"], "2026-10-26T08:30")
+
+    def test_assistant_api(self):
+        # Without readings or journal, should return 400
+        res = self.client.post(
+            "/api/assistant",
+            json={"question": "Summarize my readings"},
+            headers={"X-CSRFToken": self.csrf_token},
+        )
+        self.assertEqual(res.status_code, 400)
+
+        # Add a reading
+        self.client.post(
+            "/readings",
+            data={
+                "csrf_token": self.csrf_token,
+                "value": "120",
+                "unit": "mg/dL",
+                "context": "Fasting",
+                "recorded_at": "2026-10-26T08:30",
+            },
+        )
+
+        # Now assistant returns 200 with structured response (via Ollama or intelligent fallback)
+        res = self.client.post(
+            "/api/assistant",
+            json={"question": "Summarize my readings"},
+            headers={"X-CSRFToken": self.csrf_token},
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn("answer", data)
+        self.assertIn("DiaBuddy Summary", data["answer"])
+
 
 if __name__ == "__main__":
     unittest.main()

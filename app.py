@@ -68,16 +68,19 @@ def inject_csrf_token():
 
 
 def parse_datetime(value: str, field_name: str) -> str:
-    try:
-        parsed = datetime.strptime(value, "%Y-%m-%dT%H:%M")
-    except (TypeError, ValueError):
-        raise ValueError(f"Enter a valid {field_name.lower()}.") from None
-    return parsed.isoformat(timespec="minutes")
+    for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            parsed = datetime.strptime(value.strip(), fmt)
+            return parsed.isoformat(timespec="minutes")
+        except (TypeError, ValueError):
+            continue
+    raise ValueError(f"Enter a valid {field_name.lower()}.")
 
 
 def parse_reading(form):
+    raw_val = (form.get("value") or "").strip().replace(",", ".")
     try:
-        value = float(form.get("value", ""))
+        value = float(raw_val)
     except (TypeError, ValueError):
         raise ValueError("Enter a numeric glucose value.") from None
     if not math.isfinite(value) or value <= 0 or value > 10000:
@@ -159,6 +162,8 @@ def index():
         if (start is None or reading["recorded_at"][:10] >= start.isoformat())
         and (end is None or reading["recorded_at"][:10] <= end.isoformat())
     ]
+    if start is not None or end is not None:
+        data["chart_readings"] = prepare_chart_data(data["visible_readings"], limit=30)
     data["from_date"] = from_date
     data["to_date"] = to_date
     return render_template("index.html", **data)
@@ -287,12 +292,8 @@ def assistant():
         )
 
     prompt = build_assistant_prompt(question, readings, journal)
-    answer, error = query_ollama(prompt)
-    if error:
-        app.logger.warning("Ollama call failed: %s", error)
-        return jsonify(error=error), 502
-
-    return jsonify(answer=answer)
+    answer, is_ai = query_ollama(prompt, question, readings, journal)
+    return jsonify(answer=answer, is_ai=is_ai)
 
 
 init_db(app.config["DATABASE_PATH"])

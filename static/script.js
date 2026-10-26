@@ -95,18 +95,35 @@ function drawGlucoseChart() {
   // Date labels at edges
   const firstDate = new Date(entries[0].recorded_at);
   const lastDate = new Date(entries[entries.length - 1].recorded_at);
-  [firstDate, lastDate].forEach((date, idx) => {
+  const sameDay = firstDate.toDateString() === lastDate.toDateString();
+
+  if (entries.length === 1) {
     const label = element("text", {
-      x: idx ? width - padding.right : padding.left,
+      x: padding.left,
       y: height - 6,
       class: "chart-date",
-      "text-anchor": idx ? "end" : "start",
+      "text-anchor": "start",
     });
-    label.textContent = Number.isNaN(date.getTime())
-      ? ""
-      : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    label.textContent = entries[0].recorded_at.replace("T", " ");
     svg.append(label);
-  });
+  } else {
+    [firstDate, lastDate].forEach((date, idx) => {
+      const label = element("text", {
+        x: idx ? width - padding.right : padding.left,
+        y: height - 6,
+        class: "chart-date",
+        "text-anchor": idx ? "end" : "start",
+      });
+      if (sameDay) {
+        label.textContent = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      } else {
+        label.textContent = Number.isNaN(date.getTime())
+          ? ""
+          : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      }
+      svg.append(label);
+    });
+  }
 }
 
 function setDefaultTimes() {

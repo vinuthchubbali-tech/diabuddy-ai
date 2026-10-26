@@ -24,12 +24,13 @@ def parse_journal_form(form: dict) -> tuple[str, str, str, str]:
     if len(detail) > 500:
         raise ValueError("Detail notes must be 500 characters or fewer.")
 
-    try:
-        parsed = datetime.strptime(logged_at_raw, "%Y-%m-%dT%H:%M")
-    except (TypeError, ValueError):
-        raise ValueError("Enter a valid journal date and time.") from None
-
-    return category, summary, detail, parsed.isoformat(timespec="minutes")
+    for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            parsed = datetime.strptime(logged_at_raw.strip(), fmt)
+            return category, summary, detail, parsed.isoformat(timespec="minutes")
+        except (TypeError, ValueError):
+            continue
+    raise ValueError("Enter a valid journal date and time.")
 
 
 def get_journal_entries(db_path=None, limit: int = 25) -> list[dict]:
@@ -65,3 +66,4 @@ def delete_journal_entry(entry_id: int, db_path=None) -> bool:
             "DELETE FROM journal_entries WHERE id = ?", (entry_id,)
         )
         return result.rowcount > 0
+

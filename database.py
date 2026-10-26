@@ -62,3 +62,4 @@ def init_db(db_path=None):
             CREATE INDEX IF NOT EXISTS idx_journal_logged_at ON journal_entries(logged_at);
             """
         )
+

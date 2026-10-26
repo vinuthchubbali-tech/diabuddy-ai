@@ -144,3 +144,4 @@ def prepare_chart_data(readings: list[dict], limit: int = 30) -> list[dict]:
     matched = [r for r in readings if r["unit"] == chart_unit][:limit]
     # Reverse so the chart flows chronologically (left to right)
     return list(reversed(matched))
+

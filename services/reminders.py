@@ -18,12 +18,13 @@ def parse_reminder_form(form: dict) -> tuple[str, str, str]:
     if kind not in REMINDER_TYPES:
         raise ValueError("Choose a valid reminder type (Medication, Glucose check, or Other).")
 
-    try:
-        parsed = datetime.strptime(scheduled_at_raw, "%Y-%m-%dT%H:%M")
-    except (TypeError, ValueError):
-        raise ValueError("Enter a valid reminder date and time.") from None
-
-    return title, kind, parsed.isoformat(timespec="minutes")
+    for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            parsed = datetime.strptime(scheduled_at_raw.strip(), fmt)
+            return title, kind, parsed.isoformat(timespec="minutes")
+        except (TypeError, ValueError):
+            continue
+    raise ValueError("Enter a valid reminder date and time.")
 
 
 def get_reminders(db_path=None, limit: int = 10) -> tuple[list[dict], list[dict]]:
@@ -74,3 +75,4 @@ def delete_reminder(reminder_id: int, db_path=None) -> bool:
     with get_db(db_path) as db:
         result = db.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
         return result.rowcount > 0
+
